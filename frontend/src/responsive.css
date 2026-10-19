@@ -1,0 +1,3 @@
+.kind-filter{width:150px;min-height:36px;padding-block:7px;font-size:11px}.date-filter{width:143px;min-height:36px;padding-block:7px;font-size:10px}.checkbox-field{display:flex;align-items:center;gap:9px;font-size:12px}.checkbox-field input{width:16px;min-height:16px;accent-color:#18558a}
+@media(max-width:1050px){.list-toolbar{flex-wrap:wrap}.date-filter{flex:1;min-width:120px}}
+@media(max-width:760px){.kind-filter,.date-filter{width:100%}.list-toolbar .searchbox{width:100%}}

@@ -1,0 +1,10 @@
+.env
+.venv/
+.packages/
+.test-deps/
+.pnpm-store/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+node_modules/
+dist/

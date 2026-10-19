@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: eduplan-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.8-flash
+      - key: MAX_UPLOAD_MB
+        value: "15"
+      - key: DAILY_GENERATION_LIMIT
+        value: "20"
+      - key: MINUTE_GENERATION_LIMIT
+        value: "3"
+      - key: ALLOWED_ORIGINS
+        sync: false
