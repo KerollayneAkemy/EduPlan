@@ -20,7 +20,7 @@ O repositório remoto fornecido continha apenas o título `# EduPlan`, sem conte
 ## Configurar o Supabase
 
 1. Crie um projeto Supabase e copie a URL, a chave anon/publishable e a chave service role para o ambiente do **backend**. A service role ignora RLS e deve ser mantida somente no servidor.
-2. No SQL Editor do projeto, execute uma vez `supabase/migrations/202610190001_initial_schema.sql`.
+2. No SQL Editor do projeto, execute os arquivos de `supabase/migrations/` em ordem cronológica. A migration inicial cria o esquema; a migration de hardening limita a execução da função de trigger de perfil e fixa o `search_path` da função de atualização.
 3. Em Authentication → URL Configuration, configure a URL do front-end local (`http://localhost:5173`) e a URL de produção. Permita esses endereços para confirmação de e-mail e recuperação de senha.
 4. A migration cria o bucket privado `syllabi`. Políticas RLS limitam perfis, ementas e materiais ao proprietário; a política do Storage limita o primeiro segmento do caminho ao UUID autenticado.
 
