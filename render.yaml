@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: eduplan-api
+    name: eduplan-api-kerollayne-eduplan
     plan: free
     runtime: python
     rootDir: backend
