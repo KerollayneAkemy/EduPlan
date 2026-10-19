@@ -4,7 +4,7 @@ import { BookOpen, Boxes, FilePlus2, FileText, Home, LogOut, Menu, Search, Setti
 import './style.css'
 import './responsive.css'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+const API = import.meta.env.VITE_API_URL?.replace(/\/+$/, '') || ''
 const nav = [
   { id: 'home', name: 'Visão geral', icon: Home }, { id: 'syllabi', name: 'Minhas ementas', icon: BookOpen },
   { id: 'generate', name: 'Gerar material', icon: Sparkles }, { id: 'materials', name: 'Meus materiais', icon: Boxes },
@@ -27,6 +27,7 @@ function App() {
   const [refresh, setRefresh] = useState(0)
 
   const api = async (path, options = {}) => {
+    if (!API) throw new Error('O serviço do EduPlan ainda não está configurado. Tente novamente mais tarde.')
     let requestToken = token
     const headers = new Headers(options.headers || {})
     if (token) headers.set('Authorization', `Bearer ${token}`)
