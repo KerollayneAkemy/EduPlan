@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BookOpen, Boxes, FilePlus2, FileText, Home, LogOut, Menu, Search, Settings, Sparkles, X } from 'lucide-react'
 import './style.css'
 import './responsive.css'
+import './generator.css'
 
 const API = import.meta.env.VITE_API_URL?.replace(/\/+$/, '') || ''
 const nav = [
@@ -122,16 +123,136 @@ function Syllabi({ api, refresh, toast, onChange }) {
   const [items, setItems] = useState(null); const [search, setSearch] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [preview, setPreview] = useState(null)
   async function load() { try { const q = new URLSearchParams(); if (search) q.set('search', search); setItems(await api(`/syllabi?${q}`)); setError('') } catch(e) { setError(e.message) } }
   useEffect(() => { const timer = setTimeout(load, 220); return () => clearTimeout(timer) }, [search, refresh])
-  async function upload(event) { event.preventDefault(); setBusy(true); setError(''); const form = new FormData(event.currentTarget); try { await api('/syllabi', { method: 'POST', body: form }); event.currentTarget.reset(); toast('Ementa cadastrada.'); onChange() } catch(e) { setError(e.message) } finally { setBusy(false) } }
+  async function upload(event) { event.preventDefault(); const formElement = event.currentTarget; const form = new FormData(formElement); setBusy(true); setError(''); try { await api('/syllabi', { method: 'POST', body: form }); formElement.reset(); toast('Ementa cadastrada.'); onChange() } catch(e) { setError(e.message) } finally { setBusy(false) } }
   async function remove(item) { if (!confirm(`Excluir a ementa “${item.file_name}”?`)) return; try { await api(`/syllabi/${item.id}`, { method: 'DELETE' }); toast('Ementa excluída.'); onChange() } catch(e) { toast(e.message, 'error') } }
   return <><div className="welcome-row"><div><div className="eyebrow">BIBLIOTECA CURRICULAR</div><h1>Minhas ementas</h1><p className="muted">Mantenha seus documentos organizados por disciplina e período.</p></div></div><section className="panel upload-panel"><div><h2>Adicionar ementa</h2><p className="muted">PDF ou DOCX · até 15 MB. O documento precisa ter texto legível.</p></div><form onSubmit={upload} className="syllabus-form"><label>Disciplina<input name="subject" placeholder="Ex.: Ciências" required maxLength="120"/></label><label>Nível de ensino<select name="education_level" required defaultValue=""><option value="" disabled>Selecione</option><option>Educação Infantil</option><option>Ensino Fundamental</option><option>Ensino Médio</option><option>EJA</option></select></label><label>Ano/série<input name="school_year" placeholder="Ex.: 6º ano" required maxLength="60"/></label><label>Ano letivo<input name="academic_year" type="number" min="2000" max="2200" defaultValue={new Date().getFullYear()} required/></label><label>Semestre<select name="semester" defaultValue="1"><option value="1">1º semestre</option><option value="2">2º semestre</option></select></label><label className="file-field">Arquivo (PDF ou DOCX)<input name="file" type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required/></label><button className="button primary" disabled={busy}><FilePlus2 size={16}/>{busy ? 'Analisando…' : 'Enviar ementa'}</button></form>{error && <div className="inline-error">{error}</div>}</section><div className="list-toolbar"><div><h2>Ementas cadastradas</h2><span className="muted">{items?.length ?? '…'} documentos</span></div><label className="searchbox"><Search size={16}/><input placeholder="Buscar disciplina ou arquivo" value={search} onChange={(e) => setSearch(e.target.value)}/></label></div>{!items ? <div className="loading-row">Carregando ementas…</div> : !items.length ? <Empty title="Nenhuma ementa por aqui" description="Envie sua primeira ementa para usar como referência ao gerar materiais."/> : <div className="data-list">{items.map((item) => <div className="data-row" key={item.id}><div className="file-icon"><FileText size={19}/></div><div className="data-main"><strong>{item.subject}</strong><small>{item.file_name} · {item.education_level}, {item.school_year}</small></div><span className="tag">{item.academic_year} · {item.semester}º sem.</span><button className="text-button" onClick={async () => { try { setPreview(await api(`/syllabi/${item.id}`)) } catch(e) { toast(e.message,'error') } }}>Ver</button><button className="text-button danger-text" onClick={() => remove(item)}>Excluir</button></div>)}</div>}{preview && <div className="modal-backdrop" onClick={() => setPreview(null)}><section className="panel preview-modal" onClick={(e) => e.stopPropagation()}><div className="editor-head"><div><div className="eyebrow">TEXTO EXTRAÍDO</div><h2>{preview.subject} · {preview.file_name}</h2><p className="muted">{preview.education_level}, {preview.school_year} · {preview.academic_year}</p></div><button className="icon-button" onClick={() => setPreview(null)} aria-label="Fechar"><X/></button></div><pre>{preview.extracted_text}</pre></section></div>}</>
 }
 
 function Generator({ api, toast, onCreated }) {
-  const [syllabi, setSyllabi] = useState([]); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [type, setType] = useState('plano de aula')
+  const [syllabi, setSyllabi] = useState([])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [type, setType] = useState('plano de aula')
+  const [educationLevel, setEducationLevel] = useState('')
+  const [grade, setGrade] = useState('')
+  const gradesByLevel = {
+    'Educação Infantil': ['Creche (0 a 3 anos)', 'Pré-escola (4 a 5 anos)'],
+    'Ensino Fundamental': Array.from({ length: 9 }, (_, index) => `${index + 1}º ano`),
+    'Ensino Médio': ['1º ano', '2º ano', '3º ano'],
+    EJA: ['EJA - Ensino Fundamental', 'EJA - Ensino Médio'],
+  }
+
   useEffect(() => { api('/syllabi').then(setSyllabi).catch((e) => setError(e.message)) }, [])
-  async function submit(e) { e.preventDefault(); setBusy(true); setError(''); const data = Object.fromEntries(new FormData(e.currentTarget)); for (const key of ['duration_minutes','questions']) data[key] = data[key] ? Number(data[key]) : null; if (!data.syllabus_id) data.syllabus_id = null; try { await api('/materials/generate', { method: 'POST', body: JSON.stringify(data) }); toast('Material gerado e salvo. Revise antes de usar em aula.'); onCreated() } catch(err) { setError(err.message) } finally { setBusy(false) } }
-  return <><div className="welcome-row"><div><div className="eyebrow">ASSISTENTE PEDAGÓGICO</div><h1>Gerar material</h1><p className="muted">A ementa selecionada orienta a geração. Você poderá revisar e editar o resultado.</p></div></div><div className="generator-layout"><form className="panel generator-form" onSubmit={submit}><label>Tipo de material<select name="kind" value={type} onChange={(e) => setType(e.target.value)}>{['plano de aula','atividade','avaliação','gabarito','adaptação','resumo'].map((kind) => <option key={kind}>{kind}</option>)}</select></label><label>Ementa de referência<select name="syllabus_id" defaultValue=""><option value="">Sem ementa específica</option>{syllabi.map((s) => <option value={s.id} key={s.id}>{s.subject} — {s.school_year} · {s.academic_year}</option>)}</select><small className="field-help">A IA vai indicar o que encontrou no documento e separar sugestões complementares.</small></label><div className="form-grid"><label>Disciplina<input name="subject" required maxLength="120" placeholder="Ex.: História"/></label><label>Ano/série<input name="grade" maxLength="80" placeholder="Ex.: 7º ano"/></label></div><label>Tema ou conteúdo<input name="topic" required minLength="3" maxLength="500" placeholder="Ex.: Ciclo da água"/></label><label>Objetivo de aprendizagem<textarea name="objective" maxLength="1000" rows="2" placeholder="O que os estudantes deverão aprender?"/></label>{type === 'plano de aula' && <label>Duração da aula (minutos)<input name="duration_minutes" type="number" min="5" max="300" placeholder="50"/></label>}{type === 'avaliação' && <><div className="form-grid"><label>Quantidade de questões<input name="questions" type="number" min="1" max="50" placeholder="10"/></label><label>Dificuldade<select name="difficulty"><option value="">Não definida</option><option>Fácil</option><option>Intermediária</option><option>Avançada</option><option>Variada</option></select></label></div><label className="checkbox-field"><input name="include_answer_key" type="checkbox" value="true"/>Incluir gabarito e explicações</label></>}{type === 'adaptação' && <label>Necessidade de aprendizagem<textarea name="instructions" maxLength="2000" rows="3" placeholder="Informe necessidades relevantes sem incluir dados pessoais identificáveis."/></label>}{!['adaptação'].includes(type) && <label>Instruções complementares<textarea name="instructions" maxLength="2000" rows="3" placeholder="Preferências de formato ou contexto adicional"/></label>}{error && <div className="inline-error" role="alert">{error}</div>}<div className="form-actions"><span className="muted small-note"><Sparkles size={15}/> A IA pode cometer erros. Revise o conteúdo antes de utilizar.</span><button className="button primary" disabled={busy}><Sparkles size={16}/>{busy ? 'Gerando material…' : 'Gerar material'}</button></div></form><aside className="side-note"><div className="quick-icon"><BookOpen size={19}/></div><h3>Como a referência é usada</h3><p>O assistente considera a ementa selecionada como fonte principal. Quando sugerir algo além do documento, deverá sinalizar essa diferença.</p><p>Revise o material e adapte-o à realidade da sua turma.</p><button className="text-button" onClick={() => onCreated()}>Ver meus materiais →</button></aside></div></>
+
+  async function submit(event) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    const data = Object.fromEntries(new FormData(event.currentTarget))
+    for (const key of ['duration_minutes', 'questions']) data[key] = data[key] ? Number(data[key]) : null
+    if (!data.syllabus_id) data.syllabus_id = null
+    try {
+      await api('/materials/generate', { method: 'POST', body: JSON.stringify(data) })
+      toast('Material gerado e salvo. Revise antes de usar em aula.')
+      onCreated()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return <>
+    <div className="welcome-row generator-page-heading">
+      <div>
+        <div className="eyebrow">ASSISTENTE PEDAGÓGICO</div>
+        <h1>Gerar material</h1>
+        <p className="muted">Escolha o formato, informe o conteúdo e personalize para sua turma.</p>
+      </div>
+    </div>
+    <form className="panel generator-form generator-form-simple" onSubmit={submit}>
+      <div className="generator-form-heading">
+        <div className="generator-heading-icon"><Sparkles size={18}/></div>
+        <div><strong>Vamos planejar?</strong><p>Os campos marcados são necessários para criar uma proposta adequada.</p></div>
+      </div>
+      <section className="generator-section" aria-labelledby="material-base-title">
+        <div className="generator-section-heading">
+          <span className="generator-step" aria-hidden="true">1</span>
+          <div><h2 id="material-base-title">Tipo e referência</h2></div>
+        </div>
+        <div className="form-grid">
+          <label>Tipo de material
+            <select name="kind" value={type} onChange={(event) => setType(event.target.value)}>
+              {['plano de aula', 'atividade', 'avaliação', 'gabarito', 'adaptação', 'resumo'].map((kind) => <option key={kind}>{kind}</option>)}
+            </select>
+          </label>
+          <label>Ementa de referência
+            <select name="syllabus_id" defaultValue="">
+              <option value="">Sem ementa específica</option>
+              {syllabi.map((syllabus) => <option value={syllabus.id} key={syllabus.id}>{syllabus.subject} - {syllabus.school_year} ({syllabus.academic_year})</option>)}
+            </select>
+            <small className="field-help">A ementa será a referência principal quando selecionada.</small>
+          </label>
+        </div>
+      </section>
+
+      <section className="generator-section" aria-labelledby="class-context-title">
+        <div className="generator-section-heading">
+          <span className="generator-step" aria-hidden="true">2</span>
+          <div><h2 id="class-context-title">Turma</h2></div>
+        </div>
+        <div className="form-grid generator-context-grid">
+          <label>Disciplina<input name="subject" required maxLength="120" placeholder="Ex.: Ciências" /></label>
+          <label>Nível de ensino
+            <select name="education_level" required value={educationLevel} onChange={(event) => { setEducationLevel(event.target.value); setGrade('') }}>
+              <option value="">Selecione</option>
+              {Object.keys(gradesByLevel).map((level) => <option key={level}>{level}</option>)}
+            </select>
+          </label>
+          <label>Ano/série
+            <select name="grade" required disabled={!educationLevel} value={grade} onChange={(event) => setGrade(event.target.value)}>
+              <option value="">{educationLevel ? 'Selecione' : 'Escolha o nível primeiro'}</option>
+              {(gradesByLevel[educationLevel] || []).map((option) => <option key={option}>{option}</option>)}
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section className="generator-section" aria-labelledby="learning-focus-title">
+        <div className="generator-section-heading">
+          <span className="generator-step" aria-hidden="true">3</span>
+          <div><h2 id="learning-focus-title">Conteúdo</h2></div>
+        </div>
+        <label>Tema ou conteúdo<input name="topic" required minLength="3" maxLength="500" placeholder="Ex.: Ciclo da água" /></label>
+        <label>Objetivo de aprendizagem <span className="optional-label">Opcional</span>
+          <textarea name="objective" maxLength="1000" rows="2" placeholder="O que os estudantes deverão aprender?" />
+        </label>
+      </section>
+
+      <details className="optional-settings">
+        <summary>Detalhes adicionais <span>Opcionais; variam conforme o tipo de material</span></summary>
+        <div className="optional-settings-fields">
+          {type === 'plano de aula' && <label>Duração da aula (minutos)<input name="duration_minutes" type="number" min="5" max="300" placeholder="Ex.: 50" /></label>}
+          {type === 'avaliação' && <>
+            <div className="form-grid">
+              <label>Quantidade de questões<input name="questions" type="number" min="1" max="50" placeholder="Ex.: 10" /></label>
+              <label>Nível de dificuldade<select name="difficulty"><option value="">Não definido</option><option>Fácil</option><option>Intermediário</option><option>Avançado</option><option>Variado</option></select></label>
+            </div>
+            <label className="checkbox-field"><input name="include_answer_key" type="checkbox" value="true" />Incluir gabarito e explicações</label>
+          </>}
+          <label>{type === 'adaptação' ? 'Necessidade de aprendizagem' : 'Instruções complementares'}
+            <textarea name="instructions" maxLength="2000" rows="3" placeholder={type === 'adaptação' ? 'Descreva os apoios ou ajustes necessários, sem dados pessoais.' : 'Preferências de formato ou contexto adicional.'} />
+          </label>
+        </div>
+      </details>
+
+      {error && <div className="inline-error" role="alert">{error}</div>}
+      <div className="form-actions generator-submit-row">
+        <span className="muted small-note"><Sparkles size={15} /> Revise e adapte o material à sua turma antes de usar.</span>
+        <button className="button primary" disabled={busy}><Sparkles size={16} />{busy ? 'Gerando material…' : 'Gerar material'}</button>
+      </div>
+    </form>
+  </>
 }
 
 function Materials({ api, refresh, toast, onChange, compact = false }) {

@@ -1,9 +1,12 @@
 from datetime import datetime
+from io import BytesIO
 import sys
 from types import SimpleNamespace
 
 import pytest
+from docx import Document
 from fastapi import HTTPException
+from pypdf import PdfReader
 
 from app.config import settings
 from app.routes import materials as material_routes
@@ -56,6 +59,26 @@ def test_exports_current_saved_content_as_pdf_and_docx(test_context):
     assert docx_type.endswith("wordprocessingml.document") and docx.startswith(b"PK")
 
 
+def test_exports_remove_markdown_markers_and_use_print_page_layout():
+    material = {
+        "title": "Atividade de leitura",
+        "subject": "Língua Portuguesa",
+        "kind": "atividade",
+        "content": "## Leitura\n- Primeiro ponto\n* Segundo ponto\n**Texto em destaque**",
+    }
+    pdf, _, _ = build_export(material, "pdf")
+    docx, _, _ = build_export(material, "docx")
+    pdf_text = "\n".join(page.extract_text() or "" for page in PdfReader(BytesIO(pdf)).pages)
+    word = Document(BytesIO(docx))
+    word_text = "\n".join(paragraph.text for paragraph in word.paragraphs)
+    for text in (pdf_text, word_text):
+        assert "**" not in text
+        assert "- Primeiro" not in text
+        assert "* Segundo" not in text
+    assert round(word.sections[0].left_margin / 360000) == 3
+    assert round(word.sections[0].top_margin / 360000) == 3
+
+
 def test_export_rejects_foreign_material(test_context):
     with pytest.raises(HTTPException) as missing:
         material_routes.export_material("44444444-4444-4444-8444-444444444444", "pdf", user={"id":USER_ID}, db=test_context)
@@ -66,6 +89,7 @@ def test_generation_uses_mock_and_persists_result(test_context, monkeypatch):
     class Models:
         def generate_content(self, **kwargs):
             assert "Sugestões complementares" in kwargs["contents"]
+            assert "Nível de ensino: Ensino Fundamental" in kwargs["contents"]
             assert kwargs["config"]["max_output_tokens"] == 4096
             return SimpleNamespace(text="## Objetivo\nRevisar o ciclo da água.")
     fake_types = SimpleNamespace(GenerateContentConfig=lambda **kwargs: kwargs)
@@ -74,7 +98,7 @@ def test_generation_uses_mock_and_persists_result(test_context, monkeypatch):
     monkeypatch.setitem(sys.modules, "google.genai", fake_genai)
     monkeypatch.setitem(sys.modules, "google.genai.types", fake_types)
     monkeypatch.setattr(settings, "gemini_api_key", "test-key")
-    result = material_routes.generate(GenerateRequest(kind="atividade", subject="Ciências", topic="Ciclo da água"), user={"id":USER_ID}, db=test_context)
+    result = material_routes.generate(GenerateRequest(kind="atividade", subject="Ciências", topic="Ciclo da água", education_level="Ensino Fundamental", grade="6º ano"), user={"id":USER_ID}, db=test_context)
     assert result["content"].startswith("## Objetivo")
     assert any(row.get("content", "").startswith("## Objetivo") for row in test_context.tables["materials"])
 
