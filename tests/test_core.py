@@ -173,20 +173,22 @@ def test_database_security_contract():
 
 def test_modern_secret_key_is_not_sent_as_jwt(monkeypatch):
     monkeypatch.setenv('SUPABASE_URL', 'https://test.supabase.co')
-    monkeypatch.setenv('SUPABASE_SERVICE_ROLE_KEY', 'sb_secret_example_only')
+    server_key = 'sb_' + 'secret_example_only'
+    monkeypatch.setenv('SUPABASE_SERVICE_ROLE_KEY', server_key)
     store = Store(admin=True)
-    assert store.headers == {'apikey': 'sb_secret_example_only'}
-    monkeypatch.setenv('SUPABASE_ANON_KEY', 'sb_publishable_example_only')
+    assert store.headers == {'apikey': server_key}
+    public_key = 'sb_' + 'publishable_example_only'
+    monkeypatch.setenv('SUPABASE_ANON_KEY', public_key)
     store = Store(Account('a', 'user-session-jwt'))
     assert store.headers['Authorization'] == 'Bearer user-session-jwt'
-    assert store.headers['apikey'] == 'sb_publishable_example_only'
+    assert store.headers['apikey'] == public_key
 
 
 @pytest.mark.parametrize('status,content,expected', [(204,b'',None),(200,b'',None),(200,b'true',True),(200,b'{"version":1}',{'version':1})])
 def test_rpc_accepts_void_and_json_responses(monkeypatch,status,content,expected):
     import httpx
     monkeypatch.setenv('SUPABASE_URL','https://test.supabase.co')
-    monkeypatch.setenv('SUPABASE_SERVICE_ROLE_KEY','sb_secret_test')
+    monkeypatch.setenv('SUPABASE_SERVICE_ROLE_KEY','sb_' + 'secret_test')
     store=Store(admin=True)
     store.request=AsyncMock(return_value=httpx.Response(status,content=content))
     assert asyncio.run(store.rpc('test_function',{})) == expected

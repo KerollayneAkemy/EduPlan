@@ -4,19 +4,19 @@ Atualizado em 5 de novembro de 2026. Faça primeiro as etapas 1 a 4 para usar o 
 
 ## O que já está pronto
 
-- Projeto Supabase `eduplan`: 11 tabelas, RLS, funções e armazenamento privado.
-- `.env` local com URL, chave pública, modelo Gemini e segredo de criptografia.
+- Migração Supabase com 11 tabelas, RLS, funções e armazenamento privado.
+- Modelo `.env.example` com as variáveis necessárias para URL, chave pública, Gemini e criptografia.
 - Backend compatível com as chaves modernas do Supabase.
 - PDF local com Arial instalada no Windows; permissões de incorporação verificadas (`fsType=8`). A fonte não foi copiada.
 - DOCX, PDF e TXT reais; PDF de teste inspecionado em duas páginas.
 - Testes de banco remoto com dados temporários revertidos, testes Python e testes do ditado.
 - Atalhos `configurar-chaves.cmd` para digitar segredos sem exibi-los e `iniciar.cmd` para iniciar o site.
 
-**Não execute novamente a migração inicial. Ela já foi aplicada no seu projeto.**
+Execute a migração inicial uma única vez no projeto Supabase que será usado pelo EduPlan.
 
 ## 1. Obter a chave privada do Supabase
 
-1. Abra [API Keys do projeto EduPlan](https://supabase.com/dashboard/project/wboaghrpiaqhecryyriq/settings/api-keys).
+1. Abra o painel do seu projeto no Supabase e vá em **Settings → API Keys**.
 2. Na área de Secret keys, copie a chave que começa com `sb_secret_`. Se não existir, crie uma Secret key para o backend EduPlan.
 3. Não confunda com `sb_publishable_`: a chave pública já está configurada. Uma chave legada `service_role` também é aceita.
 4. Guarde para colar na etapa 3. Nunca envie a chave no chat, em screenshots ou no repositório.
@@ -33,7 +33,7 @@ Essa chave permite ao backend acessar as configurações criptografadas e contro
 
 ## 3. Salvar as duas chaves no computador
 
-1. Abra a pasta `C:\Users\Kerol\OneDrive\Desktop\EduPlan`.
+1. Abra a pasta onde o EduPlan foi baixado.
 2. Dê dois cliques em `configurar-chaves.cmd`.
 3. Cole a Secret key do Supabase no primeiro pedido e pressione Enter.
 4. Cole a chave Gemini no segundo e pressione Enter.
@@ -56,16 +56,16 @@ Não apague nem regenere `KEY_ENCRYPTION_SECRET` depois que houver chaves pessoa
 8. Em **Authorized redirect URIs**, adicione exatamente:
 
 ```text
-https://wboaghrpiaqhecryyriq.supabase.co/auth/v1/callback
+https://SEU_PROJECT_REF.supabase.co/auth/v1/callback
 ```
 
 9. Salve e copie **Client ID** e **Client Secret**. Esse Client Secret é diferente da chave Gemini e da Secret key do Supabase.
 
 **No Supabase:**
 
-10. Abra [Authentication do EduPlan](https://supabase.com/dashboard/project/wboaghrpiaqhecryyriq/auth/providers). Procure **Sign In / Providers → Google**.
-11. Google já foi habilitado no projeto com o cliente web e a conta de teste configurados. Não desative a verificação de nonce.
-12. Abra [URL Configuration](https://supabase.com/dashboard/project/wboaghrpiaqhecryyriq/auth/url-configuration).
+10. No painel do Supabase, procure **Authentication → Sign In / Providers → Google**.
+11. Ative Google, informe o Client ID e o Client Secret criados no Google Cloud. Não desative a verificação de nonce.
+12. No painel do Supabase, abra **Authentication → URL Configuration**.
 13. Para desenvolvimento, preencha **Site URL** com `http://localhost:8000`.
 14. Adicione `http://localhost:8000/` à lista **Redirect URLs** e salve.
 
@@ -82,7 +82,7 @@ Não alterne entre `localhost` e `127.0.0.1` durante o login. A sessão e o veri
 7. Saia e entre novamente. Confira a conversa e os materiais. Depois teste nova versão da ementa e outra conta Google.
 8. Teste Ditar → Parar → editar → Enviar. O ditado depende do serviço de voz e da permissão do navegador, sem envio automático.
 
-As chaves e o Google já foram configurados localmente. Reinicie o EduPlan antes de testar para carregar o modelo Gemini validado.
+Depois de configurar as chaves e o Google, reinicie o EduPlan antes de testar.
 
 ## 6. Publicar na Vercel
 
