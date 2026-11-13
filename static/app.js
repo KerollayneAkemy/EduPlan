@@ -80,7 +80,9 @@ function login(){
  });
 }
 function needLogin(){if(!session){login();return true;}return false;}
-function newChat(){if(busy||switchingConversation){notice('Aguarde a conversa atual terminar de abrir.');return;}current=null;attached=[];retry=null;renderAttachments();if(data)renderContext();$('message').value='';view('home');}
+function resizeComposer(){const field=$('message');field.style.height='auto';field.style.height=Math.min(Math.max(field.scrollHeight,54),180)+'px';}
+function prefillMessage(text){$('message').value=text;resizeComposer();$('message').focus();}
+function newChat(){if(busy||switchingConversation){notice('Aguarde a conversa atual terminar de abrir.');return;}current=null;attached=[];retry=null;renderAttachments();if(data)renderContext();prefillMessage('');view('home');}
 async function startConversation(){
  const c=await api('/conversations',{method:'POST',body:{task,version_id:$('reference').value||null,subject:$('subject').value,classroom:$('classroom').value}});
  current={conversation:c,messages:[],materials:[]};await refresh();renderChat();
@@ -112,16 +114,33 @@ async function openConversation(id){
   throw error;
  }finally{setConversationLoading(false);}
 }
+function formatMessage(text){
+ const content=document.createElement('div');content.className='message-content';let paragraph=[],list=null,listType='';
+ const flushParagraph=()=>{if(!paragraph.length)return;const p=document.createElement('p');p.textContent=paragraph.join(' ');content.append(p);paragraph=[];};
+ const flushList=()=>{list=null;listType='';};
+ String(text??'').replace(/\r/g,'').split('\n').forEach(raw=>{
+  const line=raw.trim();const heading=line.match(/^(#{1,3})\s+(.+)/);const bullet=line.match(/^[-*•]\s+(.+)/);const numbered=line.match(/^\d+[.)]\s+(.+)/);
+  if(!line){flushParagraph();flushList();return;}
+  if(heading){flushParagraph();flushList();const h=document.createElement('h3');h.textContent=heading[2];content.append(h);return;}
+  if(bullet||numbered){flushParagraph();const type=numbered?'ol':'ul';if(!list||listType!==type){list=document.createElement(type);listType=type;content.append(list);}const item=document.createElement('li');item.textContent=(bullet||numbered)[1];list.append(item);return;}
+  flushList();paragraph.push(line);
+ });
+ flushParagraph();return content;
+}
+async function copyMessage(text, control){
+ try{if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(text);else{const field=document.createElement('textarea');field.value=text;field.style.position='fixed';field.style.opacity='0';document.body.append(field);field.select();document.execCommand('copy');field.remove();}const label=control.textContent;control.textContent='Copiado';notice('Resposta copiada.');setTimeout(()=>{if(control.isConnected)control.textContent=label;},1600);}catch{throw new Error('Não foi possível copiar agora. Selecione o texto e tente novamente.');}
+}
 function renderChat(){
- view('chat');$('messages').replaceChildren();
- if(!current.messages.length){const p=document.createElement('p');p.className='session-note';p.textContent='Este espaço está pronto. Envie sua atividade, dúvida ou ideia para começar.';$('messages').append(p);}
+ view('chat');$('messages').replaceChildren();$('chat-title').textContent=current?.conversation?.title||'Conversa';
+ if(!current?.messages?.length){const p=document.createElement('p');p.className='session-note';p.textContent='Este espaço está pronto. Envie uma atividade, dúvida ou ideia para começar.';const ideas=document.createElement('div');ideas.className='chat-starters';[['Adaptar uma atividade','Quero adaptar uma atividade.'],['Criar exercícios','Quero gerar exercícios para a turma.'],['Organizar uma aula','Quero organizar um plano de aula.']].forEach(([label,text])=>ideas.append(button(label,()=>prefillMessage(text),'chip')));$('messages').append(p,ideas);}
  current.messages.forEach(m=>{
   const el=document.createElement('article');el.className='message '+m.role;
-  const title=document.createElement('span');title.className='speaker';title.textContent=m.role==='user'?'VOCÊ':'EDUPLAN';el.append(title,document.createTextNode(m.content));
-  if(m.file_ids?.length){const note=document.createElement('p');note.className='muted';note.textContent=`${m.file_ids.length} anexo(s) de atividade nesta mensagem`;el.append(note);}
+  const title=document.createElement('span');title.className='speaker';title.textContent=m.role==='user'?'VOCÊ':'EDUPLAN';el.append(title,formatMessage(m.content));
+  if(m.file_ids?.length){const note=document.createElement('p');note.className='message-attachment';note.textContent=`${m.file_ids.length} anexo(s) de atividade nesta mensagem`;el.append(note);}
   if(m.role==='assistant'){
+   const footer=document.createElement('div');footer.className='message-footer';footer.append(button('Copiar resposta',()=>copyMessage(m.content,footer.firstElementChild),'chip'));el.append(footer);
    const mat=current.materials.find(x=>x.request_id===m.request_id);
-   if(mat){const actions=document.createElement('div');actions.className='actions';['Simplificar linguagem','Ajustar dificuldade','Dividir em etapas','Incluir gabarito','Revisar conteúdo'].forEach(text=>actions.append(button(text,()=>{$('message').value=text+' no material anterior.';$('message').focus();})));actions.append(button('↓ Baixar material',()=>exportDialog(mat)));el.append(actions);}
+   if(mat){const actions=document.createElement('div');actions.className='actions';['Simplificar linguagem','Ajustar dificuldade','Dividir em etapas','Incluir gabarito','Revisar conteúdo'].forEach(text=>actions.append(button(text,()=>prefillMessage(text+' no material anterior.'),'chip')));actions.append(button('↓ Baixar material',()=>exportDialog(mat)));el.append(actions);}
   }
   $('messages').append(el);
  });
@@ -135,7 +154,7 @@ async function send(text){
   if(!retry||retry.signature!==signature)retry={signature,id:crypto.randomUUID()};
   $('generating').hidden=false;$('generating').scrollIntoView({block:'nearest'});
   current=await api('/conversations/'+current.conversation.id+'/messages',{method:'POST',body:{text,file_ids:files,request_id:retry.id}});
-  $('message').value='';attached=[];retry=null;renderAttachments();renderChat();await refresh();
+  prefillMessage('');attached=[];retry=null;renderAttachments();renderChat();await refresh();
   $('messages').lastElementChild?.scrollIntoView({block:'start',behavior:'smooth'});
  }finally{busy=false;$('send').disabled=false;$('generating').hidden=true;}
 }
@@ -229,7 +248,7 @@ function microphone(){
   recognition.onresult=e=>{
    if(currentSession!==s)return;
    const transcript=Array.from(e.results).map(r=>r[0].transcript).join(' ');
-   s.received=s.received||!!transcript.trim();field.value=(s.before+' '+transcript).trim().slice(0,12000);
+   s.received=s.received||!!transcript.trim();field.value=(s.before+' '+transcript).trim().slice(0,12000);if(typeof resizeComposer==='function')resizeComposer();
    if(field.value.length>=12000)stop(s);
   };
   recognition.onerror=e=>{
@@ -252,11 +271,12 @@ function microphone(){
 async function init(){
  microphone();
  config=await fetch('/api/config').then(r=>r.json());
- Object.entries(config.tasks).forEach(([id,label])=>{const el=button('',()=>{if(needLogin())return;task=id;$('message').value=starters[id];$('message').focus();notice('Envie a mensagem sugerida ou acrescente detalhes. O EduPlan orientará os próximos passos.');},'task-card');el.innerHTML=`<strong>${escapeHTML(label)}</strong><small>${escapeHTML(descriptions[id])}</small>`;$('tasks').append(el);});
+ Object.entries(config.tasks).forEach(([id,label])=>{const el=button('',()=>{if(needLogin())return;task=id;prefillMessage(starters[id]);notice('Envie a mensagem sugerida ou acrescente detalhes. O EduPlan orientará os próximos passos.');},'task-card');el.innerHTML=`<strong>${escapeHTML(label)}</strong><small>${escapeHTML(descriptions[id])}</small>`;$('tasks').append(el);});
  on('menu','click',()=>{const open=document.body.classList.toggle('menu-open');$('menu').setAttribute('aria-expanded',String(open));});
  on('close-dialog','click',()=>$('dialog').close());on('new-chat','click',newChat);on('nav-home','click',()=>current?renderChat():view('home'));
  on('nav-syllabi','click',renderSyllabi);on('nav-materials','click',renderMaterials);on('nav-settings','click',settings);on('account-button','click',()=>session?settings():login());
  on('composer','submit',async e=>{e.preventDefault();await send($('message').value);});
+ on('message','input',resizeComposer);on('message','keydown',async e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();await send($('message').value);}});resizeComposer();
  on('attach','click',()=>{if(!needLogin())$('chat-file').click();});on('chat-file','change',async()=>{if(attached.length>=3)throw new Error('Anexe até três arquivos por mensagem.');notice('Lendo e salvando o anexo…');try{attached.push(await uploadFile($('chat-file').files[0]));renderAttachments();notice('Anexo de atividade pronto. Ele não substitui sua ementa de referência.');}finally{$('chat-file').value='';}});
  on('reference','change',()=>{if(current&&$('reference').value!==(current.conversation.version_id||'')){const next=$('reference').value;$('reference').value=current.conversation.version_id||'';modal('<h2>Usar outra referência?</h2><p>Vamos iniciar uma nova conversa. Esta conversa continuará vinculada à versão original da ementa.</p><div id="switch-actions" class="dialog-actions"></div>');$('switch-actions').append(button('Iniciar nova conversa',()=>{if(busy)throw new Error('Aguarde a geração terminar.');$('dialog').close();newChat();$('reference').value=next;},'primary'),button('Continuar nesta conversa',()=>$('dialog').close()));}});
  window.addEventListener('offline',()=>notice('Você está sem conexão. Seu texto permanece aqui; reconecte para enviar.',true));window.addEventListener('online',()=>notice('Conexão restabelecida. Você pode tentar novamente.'));
