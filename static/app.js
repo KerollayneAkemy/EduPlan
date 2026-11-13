@@ -130,6 +130,7 @@ function formatMessage(text){
 async function copyMessage(text, control){
  try{if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(text);else{const field=document.createElement('textarea');field.value=text;field.style.position='fixed';field.style.opacity='0';document.body.append(field);field.select();document.execCommand('copy');field.remove();}const label=control.textContent;control.textContent='Copiado';notice('Resposta copiada.');setTimeout(()=>{if(control.isConnected)control.textContent=label;},1600);}catch{throw new Error('Não foi possível copiar agora. Selecione o texto e tente novamente.');}
 }
+function editAndResend(text){prefillMessage(text);notice('Edite sua pergunta e envie novamente. A pergunta original continua salva no histórico.');}
 function renderChat(){
  view('chat');$('messages').replaceChildren();$('chat-title').textContent=current?.conversation?.title||'Conversa';
  if(!current?.messages?.length){const p=document.createElement('p');p.className='session-note';p.textContent='Este espaço está pronto. Envie uma atividade, dúvida ou ideia para começar.';const ideas=document.createElement('div');ideas.className='chat-starters';[['Adaptar uma atividade','Quero adaptar uma atividade.'],['Criar exercícios','Quero gerar exercícios para a turma.'],['Organizar uma aula','Quero organizar um plano de aula.']].forEach(([label,text])=>ideas.append(button(label,()=>prefillMessage(text),'chip')));$('messages').append(p,ideas);}
@@ -137,6 +138,7 @@ function renderChat(){
   const el=document.createElement('article');el.className='message '+m.role;
   const title=document.createElement('span');title.className='speaker';title.textContent=m.role==='user'?'VOCÊ':'EDUPLAN';el.append(title,formatMessage(m.content));
   if(m.file_ids?.length){const note=document.createElement('p');note.className='message-attachment';note.textContent=`${m.file_ids.length} anexo(s) de atividade nesta mensagem`;el.append(note);}
+  if(m.role==='user'){const footer=document.createElement('div');footer.className='message-footer';footer.append(button('Editar e reenviar',()=>editAndResend(m.content),'chip'));el.append(footer);}
   if(m.role==='assistant'){
    const footer=document.createElement('div');footer.className='message-footer';footer.append(button('Copiar resposta',()=>copyMessage(m.content,footer.firstElementChild),'chip'));el.append(footer);
    const mat=current.materials.find(x=>x.request_id===m.request_id);
@@ -147,15 +149,19 @@ function renderChat(){
 }
 async function send(text){
  if(needLogin()||busy||!stateReady())return;if(!text.trim())return;
- busy=true;$('send').disabled=true;notice('');
+ busy=true;$('send').disabled=true;notice('');let optimistic=null;
  try{
   if(!current)await startConversation();
   const files=attached.map(f=>f.id);const signature=JSON.stringify([current.conversation.id,text,files]);
   if(!retry||retry.signature!==signature)retry={signature,id:crypto.randomUUID()};
+  optimistic={role:'user',content:text,file_ids:files};current.messages.push(optimistic);renderChat();
   $('generating').hidden=false;$('generating').scrollIntoView({block:'nearest'});
   current=await api('/conversations/'+current.conversation.id+'/messages',{method:'POST',body:{text,file_ids:files,request_id:retry.id}});
   prefillMessage('');attached=[];retry=null;renderAttachments();renderChat();await refresh();
   $('messages').lastElementChild?.scrollIntoView({block:'start',behavior:'smooth'});
+ }catch(error){
+  if(optimistic&&current?.messages){current.messages=current.messages.filter(message=>message!==optimistic);renderChat();}
+  throw error;
  }finally{busy=false;$('send').disabled=false;$('generating').hidden=true;}
 }
 function renderAttachments(){ $('attachments').replaceChildren();attached.forEach((f,i)=>$('attachments').append(button(f.filename+' ×',()=>{attached.splice(i,1);renderAttachments();}))); }

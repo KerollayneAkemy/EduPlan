@@ -29,6 +29,7 @@ Material deve conter title, student (conteúdo destinado ao aluno ou corpo princ
 teacher (orientações, justificativas e gabarito exclusivos do professor, nunca no student).
 Use Markdown simples com títulos, listas e tabelas. Não use HTML. Não invente campos ausentes.
 Para planos e relatórios, student pode conter o corpo principal mesmo se destinado ao docente.
+Se o professor não pedir um material completo, responda de forma objetiva e avance uma etapa por vez.
 """
 
 

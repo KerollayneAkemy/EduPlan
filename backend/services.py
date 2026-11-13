@@ -127,7 +127,7 @@ async def generate(key, system, contents):
         async with genai.Client(api_key=key, http_options=types.HttpOptions(timeout=85000)).aio as client:
             result = await client.models.generate_content(model=env("GEMINI_MODEL"), contents=contents,
                 config=types.GenerateContentConfig(system_instruction=system, temperature=0.35,
-                    max_output_tokens=10000, response_mime_type="application/json", response_schema=Answer))
+                    max_output_tokens=6000, response_mime_type="application/json", response_schema=Answer))
         return Answer.model_validate_json(result.text or "{}")
     except errors.APIError as exc:
         if exc.code in (400, 401, 403):

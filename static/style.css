@@ -88,7 +88,6 @@ dialog::backdrop { background:#20292366; backdrop-filter:none; }
 .chat-starters { display:flex; gap:8px; flex-wrap:wrap; margin:-8px 0 26px 16px; }
 .composer-area { position:sticky; bottom:0; z-index:5; background:var(--paper); padding-top:14px; }
 .composer-area form:focus-within { border-color:#9eafa5; }
-.keyboard-hint { color:var(--muted); font-size:10px; margin-left:auto; margin-right:14px; }
 .generating { background:#f7f9f7; border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin-bottom:14px; }
 @media(max-width:720px) {
  .chat { padding-top:18px; }
@@ -97,6 +96,11 @@ dialog::backdrop { background:#20292366; backdrop-filter:none; }
  .chat-saved { font-size:10px; }
  .message.assistant { padding:15px; }
  .message.user { margin-left:32px; }
- .keyboard-hint { display:none; }
  .composer-area { padding-top:8px; }
 }
+
+.typing-dots { display:inline-flex; align-items:center; gap:4px; width:27px; margin-right:8px; vertical-align:middle; }
+.typing-dots i { width:6px; height:6px; background:var(--green); border-radius:50%; animation:typing-bounce .9s infinite ease-in-out; }
+.typing-dots i:nth-child(2) { animation-delay:.14s; }
+.typing-dots i:nth-child(3) { animation-delay:.28s; }
+@keyframes typing-bounce { 0%,60%,100% { transform:translateY(0); opacity:.35; } 30% { transform:translateY(-4px); opacity:1; } }
