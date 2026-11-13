@@ -1,0 +1,6 @@
+{
+  "name": "eduplan-validation",
+  "private": true,
+  "scripts": {"test:db": "node tests/database.mjs", "check": "node --check static/app.js"},
+  "devDependencies": {"@electric-sql/pglite": "^0.3.14"}
+}

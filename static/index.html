@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#245747"><title>EduPlan · Assistente docente</title><link rel="stylesheet" href="/static/style.css"></head>
+<body>
+<a class="skip" href="#content">Ir para o conteúdo</a>
+<div class="shell">
+ <aside id="sidebar" aria-label="Menu principal">
+  <a class="brand" href="/" aria-label="EduPlan início"><span>Edu<span class="brand-light">Plan</span><small>Assistente docente</small></span></a>
+  <button class="primary new-chat" id="new-chat"><span>＋</span> Nova conversa</button>
+  <nav><button id="nav-home" class="nav-item active">Conversas</button><button id="nav-syllabi" class="nav-item">Minhas ementas</button><button id="nav-materials" class="nav-item">Meus materiais</button></nav>
+  <div class="recent-heading">CONVERSAS RECENTES</div><div id="recent" class="recent"><p class="muted">Suas conversas aparecerão aqui.</p></div>
+  <div class="sidebar-bottom"><button id="nav-settings" class="nav-item">Configurações</button><button id="account-button" class="account"><span class="avatar" id="avatar">P</span><span id="account-name">Minha conta<small>Entre para salvar seu trabalho</small></span></button></div>
+ </aside>
+ <main id="content">
+  <header><button id="menu" class="icon-button" aria-label="Abrir ou fechar menu" aria-expanded="false">☰</button><span class="breadcrumb">EduPlan <span>/</span> <strong id="page-name">Nova conversa</strong></span></header>
+  <div id="alert" class="alert" role="status" aria-live="polite" hidden></div>
+  <section id="context-bar" class="context-bar" aria-label="Referências da conversa">
+   <label>DISCIPLINA<select id="subject"><option value="">Selecionar disciplina</option></select></label>
+   <label>TURMA<select id="classroom"><option value="">Selecionar turma</option></select></label>
+   <label class="syllabus-select">EMENTA DE REFERÊNCIA<select id="reference"><option value="">Sem ementa selecionada</option></select></label>
+  </section>
+  <section id="home" class="home">
+   <h1>Como posso ajudar?</h1><p class="intro">Selecione uma tarefa ou escreva sua mensagem para começar.</p>
+   <div class="section-label">Ferramentas para o professor</div>
+   <div class="task-grid" id="tasks"></div>
+   <div class="privacy-note">Descreva as necessidades sem informar nomes ou dados pessoais dos alunos.</div>
+  </section>
+  <section id="chat" class="chat" aria-label="Conversa" hidden><div id="messages" aria-live="polite"></div><div id="generating" class="generating" hidden><span class="pulse"></span> Preparando uma proposta para você revisar…</div></section>
+  <section id="library" class="library" hidden></section>
+  <div id="composer-area" class="composer-area"><form id="composer"><div id="attachments" class="attachments"></div><label for="message" class="sr-only">Sua mensagem para o EduPlan</label><textarea id="message" placeholder="O que vamos preparar para sua próxima aula?" rows="2" maxlength="12000"></textarea><p id="dictation-status" class="dictation-status" role="status" aria-live="polite" hidden></p><div class="composer-tools"><div><button type="button" class="icon-button" id="attach" aria-label="Anexar atividade">＋</button><button type="button" class="mic-button" id="mic" aria-label="Ditar mensagem" aria-pressed="false" aria-describedby="dictation-status" title="Ditar mensagem"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg><span id="mic-label">Ditar</span></button><span class="file-hint">PDF, Word ou TXT · até 3 MB</span></div><button class="send" id="send" type="submit">Enviar <span>↑</span></button></div></form><p class="footnote">A IA pode cometer erros. Revise os materiais antes de usar em sala.</p></div>
+ </main>
+</div>
+<input type="file" id="chat-file" accept=".pdf,.docx,.txt" hidden>
+<dialog id="dialog"><div class="dialog-top"><span class="eyebrow">EDUPLAN</span><button id="close-dialog" class="icon-button" aria-label="Fechar janela">×</button></div><div id="dialog-content"></div></dialog>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.js" defer></script><script src="/static/app.js" defer></script>
+</body></html>

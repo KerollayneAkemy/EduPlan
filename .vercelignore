@@ -1,0 +1,17 @@
+.env
+.env.*
+.venv/
+node_modules/
+__pycache__/
+.pytest_cache/
+tmp/
+tests/
+docs/
+examples/
+scripts/
+iniciar.ps1
+iniciar.cmd
+configurar-chaves.cmd
+package.json
+package-lock.json
+tmp-db-error.txt
