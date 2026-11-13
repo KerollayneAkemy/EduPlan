@@ -1,7 +1,7 @@
 'use strict';
 const $ = (id) => document.getElementById(id);
 const escapeHTML = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let config, auth, session, data, current = null, attached = [], busy = false, switchingConversation = false, task = 'adaptar', retry = null;
+let config, auth, session, data = null, current = null, attached = [], busy = false, switchingConversation = false, task = 'adaptar', retry = null;
 const descriptions = {
  adaptar:'Ajuste atividades às necessidades da turma', planejar:'Planos de aula e sequências didáticas', revisar:'Revise textos, questões e respostas', relatar:'Organize observações pedagógicas',
  material:'Textos, resumos e roteiros de slides', prova:'Questões e critérios de avaliação', exercicios:'Atividades de prática e revisão', dinamicas:'Estratégias e atividades em grupo'
@@ -17,7 +17,12 @@ const starters = {
  dinamicas:'Quero ideias de dinâmicas e estratégias de ensino. Ajude-me a escolher uma proposta para minha turma.'
 };
 function notice(message, error=false) { $('alert').textContent=message; $('alert').classList.toggle('error',error); $('alert').hidden=!message; }
-function report(error) { notice(error.message || 'Não foi possível concluir. Tente novamente.',true); if($('dialog').open){ let el=$('dialog-error'); if(!el){el=document.createElement('p');el.id='dialog-error';el.className='dialog-error';el.setAttribute('role','alert');$('dialog-content').append(el);}el.textContent=error.message; } }
+function friendlyError(error) {
+ const message=error instanceof Error ? error.message : '';
+ if(/cannot read properties|undefined|null/i.test(message)) return 'Ainda estamos carregando suas informações. Aguarde alguns segundos e tente novamente.';
+ return message || 'Não foi possível concluir. Tente novamente.';
+}
+function report(error) { const message=friendlyError(error);notice(message,true); if($('dialog').open){ let el=$('dialog-error'); if(!el){el=document.createElement('p');el.id='dialog-error';el.className='dialog-error';el.setAttribute('role','alert');$('dialog-content').append(el);}el.textContent=message; } }
 function run(fn){ return async(...args)=>{try{await fn(...args);}catch(e){report(e);}}; }
 function on(id,event,fn){ $(id).addEventListener(event,run(fn)); }
 function modal(html){$('dialog-content').innerHTML=html;if(!$('dialog').open)$('dialog').showModal();}
@@ -32,22 +37,31 @@ async function api(path, options={}) {
  if(!response.ok){const e=await response.json().catch(()=>({}));throw new Error(typeof e.detail==='string'?e.detail:'Revise os campos informados e tente novamente.');}
  return options.blob?response.blob():response.json();
 }
-async function refresh(){data=await api('/state');renderSidebar();renderContext();}
+function emptyState(){return {profile:null,key:{mode:'project',saved:false},syllabi:[],versions:[],conversations:[],materials:[]};}
+function normalizeState(value){
+ if(!value || typeof value!=='object')throw new Error('Não foi possível carregar suas informações. Atualize a página e tente novamente.');
+ const fallback=emptyState();
+ return {...fallback,...value,key:{...fallback.key,...(value.key||{})},syllabi:Array.isArray(value.syllabi)?value.syllabi:[],versions:Array.isArray(value.versions)?value.versions:[],conversations:Array.isArray(value.conversations)?value.conversations:[],materials:Array.isArray(value.materials)?value.materials:[]};
+}
+function stateReady(){if(data)return true;notice('Carregando suas informações. Aguarde alguns segundos e tente novamente.');return false;}
+async function refresh(){data=normalizeState(await api('/state'));renderSidebar();renderContext();}
 function renderSidebar(){
+ const state=data||emptyState();
  $('recent').replaceChildren();
- if(!data.conversations.length){$('recent').innerHTML='<p class="muted">Ainda não há conversas.<br>Vamos preparar sua primeira aula?</p>';}
- data.conversations.forEach(c=>{const item=button(c.title,()=>openConversation(c.id),'');item.disabled=switchingConversation;$('recent').append(item);});
- const name=data.profile?.name || 'Professor';$('avatar').textContent=name.charAt(0).toUpperCase();
+ if(!state.conversations.length){$('recent').innerHTML='<p class="muted">Ainda não há conversas.<br>Vamos preparar sua primeira aula?</p>';}
+ state.conversations.forEach(c=>{const item=button(c.title,()=>openConversation(c.id),'');item.disabled=switchingConversation;$('recent').append(item);});
+ const name=state.profile?.name || 'Professor';$('avatar').textContent=name.charAt(0).toUpperCase();
  $('account-name').replaceChildren(document.createTextNode(name));const small=document.createElement('small');small.textContent='Seu trabalho, sempre por perto';$('account-name').append(small);
 }
 function fillSelect(id, values, placeholder, chosen){$(id).replaceChildren(new Option(placeholder,''));values.forEach(([value,label])=>$(id).add(new Option(label,value)));$(id).value=chosen||'';}
 function renderContext(){
+ const state=data||emptyState();
  const subject=current?.conversation.subject || $('subject').value, classroom=current?.conversation.classroom || $('classroom').value;
- const subjects=[...new Set([...(data.profile?.subjects||[]),...data.syllabi.map(s=>s.subject),subject].filter(Boolean))];
- const classes=[...new Set([...(data.profile?.classes||[]),...data.syllabi.map(s=>s.classroom),classroom].filter(Boolean))];
+ const subjects=[...new Set([...(state.profile?.subjects||[]),...state.syllabi.map(s=>s.subject),subject].filter(Boolean))];
+ const classes=[...new Set([...(state.profile?.classes||[]),...state.syllabi.map(s=>s.classroom),classroom].filter(Boolean))];
  fillSelect('subject',subjects.map(s=>[s,s]),'Selecionar disciplina',subject);
  fillSelect('classroom',classes.map(s=>[s,s]),'Selecionar turma',classroom);
- const versions=data.versions.map(v=>{const s=data.syllabi.find(s=>s.id===v.syllabus_id);return [v.id,`${s?.name||'Ementa'} · v${v.version}`];});
+ const versions=state.versions.map(v=>{const s=state.syllabi.find(s=>s.id===v.syllabus_id);return [v.id,`${s?.name||'Ementa'} · v${v.version}`];});
  fillSelect('reference',versions,'Sem ementa selecionada',current?.conversation.version_id||$('reference').value);
  $('subject').disabled=!!current;$('classroom').disabled=!!current;
 }
@@ -113,7 +127,7 @@ function renderChat(){
  });
 }
 async function send(text){
- if(needLogin()||busy)return;if(!text.trim())return;
+ if(needLogin()||busy||!stateReady())return;if(!text.trim())return;
  busy=true;$('send').disabled=true;notice('');
  try{
   if(!current)await startConversation();
@@ -140,7 +154,7 @@ function syllabusForm(existing=null){
 function libraryHeader(title, subtitle, action){$('library').innerHTML=`<div class="library-top"><h1>${title}</h1><div id="library-action"></div></div><p class="muted">${subtitle}</p><div id="library-list"></div>`;if(action)$('library-action').append(action);}
 function renameDialog(title,value,save){modal(`<h2>${title}</h2><form id="rename-form"><label class="field">Nome<input id="rename-name" required maxlength="120" value="${escapeHTML(value)}"></label><button class="primary">Salvar</button></form>`);on('rename-form','submit',async e=>{e.preventDefault();await save($('rename-name').value);$('dialog').close();await refresh();});}
 function renderSyllabi(){
- if(needLogin())return;view('syllabi');libraryHeader('Minhas ementas','Referências organizadas, com as versões anteriores sempre preservadas.',button('＋ Adicionar ementa',()=>syllabusForm(),'primary'));
+ if(needLogin()||!stateReady())return;view('syllabi');libraryHeader('Minhas ementas','Referências organizadas, com as versões anteriores sempre preservadas.',button('＋ Adicionar ementa',()=>syllabusForm(),'primary'));
  if(!data.syllabi.length)$('library-list').innerHTML='<div class="empty"><h2>Nenhuma ementa cadastrada</h2><p>Adicione uma ementa para orientar as propostas de conteúdo.<br>Você também pode conversar sem uma ementa.</p></div>';
  data.syllabi.forEach(s=>{
   const el=document.createElement('article');el.className='list-card';el.innerHTML=`<h3>${escapeHTML(s.name)}</h3><p>${escapeHTML(s.subject)} · ${escapeHTML(s.stage)} · ${escapeHTML(s.classroom)}</p>`;
@@ -151,7 +165,7 @@ function renderSyllabi(){
  });
 }
 function renderMaterials(){
- if(needLogin())return;view('materials');libraryHeader('Meus materiais','Propostas salvas para revisar, organizar e levar para a sala de aula.');
+ if(needLogin()||!stateReady())return;view('materials');libraryHeader('Meus materiais','Propostas salvas para revisar, organizar e levar para a sala de aula.');
  if(!data.materials.length)$('library-list').innerHTML='<div class="empty"><h2>Nenhum material salvo</h2><p>Os materiais produzidos nas conversas são salvos automaticamente.</p></div>';
  data.materials.forEach(m=>{const el=document.createElement('article');el.className='list-card';el.innerHTML=`<h3>${escapeHTML(m.title)}</h3><p class="muted">${new Date(m.created_at).toLocaleDateString('pt-BR')} · Proposta para revisão docente</p>`;const actions=document.createElement('div');actions.className='actions';actions.append(button('Visualizar e baixar',async()=>exportDialog(await api('/materials/'+m.id))),button('Abrir conversa',()=>openConversation(m.conversation_id)),button('Renomear',()=>renameDialog('Organizar material',m.title,async name=>{await api('/materials/'+m.id,{method:'PATCH',body:{name}});await refresh();renderMaterials();})));el.append(actions);$('library-list').append(el);});
 }
@@ -161,7 +175,7 @@ function exportDialog(m){
  ['docx','pdf','txt'].forEach(format=>$('export-buttons').append(button('↓ '+({docx:'Word',pdf:'PDF',txt:'TXT'})[format],async()=>{const layout={spacing:Number($('export-spacing').value)};['top','left','bottom','right'].forEach(k=>layout[k]=Number($('margin-'+k).value));const blob=await api('/materials/'+m.id+'/export',{method:'POST',blob:true,body:{format,audience:$('export-audience').value,layout}});download(blob,'eduplan-'+m.id+'.'+format);notice('Arquivo gerado e salvo no seu armazenamento privado.');},'secondary')));
 }
 function settings(){
- if(needLogin())return;view('settings');libraryHeader('Configurações','Seu perfil e suas preferências, em um só lugar.');
+ if(needLogin()||!stateReady())return;view('settings');libraryHeader('Configurações','Seu perfil e suas preferências, em um só lugar.');
  $('library-list').innerHTML=`<article class="list-card"><h3>Seu perfil</h3><p>${escapeHTML(data.profile?.name||'Complete seu perfil')}<br>${escapeHTML(data.profile?.subjects?.join(', ')||'Adicione suas disciplinas')}<br>${escapeHTML(data.profile?.classes?.join(', ')||'Adicione suas turmas')}</p><button id="edit-profile" class="secondary">Editar perfil</button></article><article class="list-card"><h3>Chave da IA</h3><p>A opção escolhida vale para todas as conversas. Sua chave pessoal é criptografada no servidor e nunca será exibida aqui.</p><label class="field">Qual chave deseja usar?<select id="key-mode"><option value="project">Usar a chave do projeto</option><option value="personal">Usar minha própria chave do Gemini</option></select></label><div id="personal-key"><label class="field">Chave do Gemini<input type="password" id="api-key" autocomplete="off" maxlength="256" placeholder="${data.key.saved?'Uma chave já está salva. Digite para substituir.':'Cole sua chave aqui'}"></label><p class="form-help">Validar usa uma chamada mínima à API. O plano estudantil do aplicativo Gemini não garante créditos da API.</p></div><div class="actions"><button id="save-key" class="primary">Validar e salvar</button><button id="delete-key" class="secondary">Excluir chave e usar a do projeto</button></div><p class="form-help">A chave do projeto possui limite diário por usuário. Não há troca automática quando a chave pessoal falha.</p></article><article class="list-card"><h3>Sua conta</h3><p>Ementas, conversas e materiais continuarão salvos ao sair.</p><button id="logout" class="secondary">Sair da conta</button></article>`;
  $('key-mode').value=data.key.mode;const visibility=()=>{$('personal-key').hidden=$('key-mode').value!=='personal';$('save-key').textContent=$('key-mode').value==='personal'?'Validar e salvar':'Usar chave do projeto';};visibility();on('key-mode','change',visibility);on('edit-profile','click',()=>profileForm());
  on('save-key','click',async()=>{const secret=$('api-key').value;$('api-key').value='';$('save-key').disabled=true;try{await api('/key',{method:'PUT',body:{mode:$('key-mode').value,key:secret||null}});await refresh();settings();notice('Preferência da chave salva.');}finally{if($('save-key'))$('save-key').disabled=false;}});
