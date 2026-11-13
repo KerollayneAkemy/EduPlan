@@ -1,4 +1,5 @@
 import os
+import re
 import json
 from dataclasses import dataclass
 import httpx
@@ -122,13 +123,35 @@ class Answer(BaseModel):
     material: Material | None = None
 
 
+def presentation_text(value: str) -> str:
+    """Remove Markdown markers from model output while retaining readable structure."""
+    value = re.sub(r"^\s*#{1,6}\s*", "", value, flags=re.MULTILINE)
+    value = value.replace("**", "").replace("`", "")
+    value = re.sub(r"^\s*\*\s+", "- ", value, flags=re.MULTILINE).replace("*", "×")
+    lines = []
+    for line in value.splitlines():
+        stripped = line.strip()
+        if stripped and re.fullmatch(r"\|?[\s:|-]+\|?", stripped):
+            continue
+        if "|" in line:
+            line = " • ".join(cell.strip() for cell in line.strip().strip("|").split("|") if cell.strip())
+        lines.append(line)
+    return "\n".join(lines).strip()
+
+
 async def generate(key, system, contents):
     try:
         async with genai.Client(api_key=key, http_options=types.HttpOptions(timeout=85000)).aio as client:
             result = await client.models.generate_content(model=env("GEMINI_MODEL"), contents=contents,
                 config=types.GenerateContentConfig(system_instruction=system, temperature=0.35,
                     max_output_tokens=6000, response_mime_type="application/json", response_schema=Answer))
-        return Answer.model_validate_json(result.text or "{}")
+        answer = Answer.model_validate_json(result.text or "{}")
+        answer.reply = presentation_text(answer.reply)
+        if answer.material:
+            answer.material.title = presentation_text(answer.material.title)
+            answer.material.student = presentation_text(answer.material.student)
+            answer.material.teacher = presentation_text(answer.material.teacher)
+        return answer
     except errors.APIError as exc:
         if exc.code in (400, 401, 403):
             raise HTTPException(422, "A chave da IA ou o modelo não foi aceito. Confira a chave selecionada em Configurações; você pode escolher a chave do projeto.") from None

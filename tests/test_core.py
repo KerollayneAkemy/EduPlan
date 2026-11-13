@@ -11,7 +11,7 @@ from docx import Document
 from pypdf import PdfReader, PdfWriter
 from backend.documents import extract, export, MAX_FILE, clean
 from backend.prompts import relevant, SYSTEM, TASKS
-from backend.services import Account, Store, selected_key, authenticate
+from backend.services import Account, Store, selected_key, authenticate, presentation_text
 import backend.services as services
 import app as web
 
@@ -29,6 +29,12 @@ def test_txt_utf8_and_separation():
 def test_blank_answer_lines_are_preserved():
     assert clean('Resposta: ____________________') == 'Resposta: ____________________'
     assert clean('__Título__ e **ênfase**') == 'Título e ênfase'
+
+
+def test_model_presentation_removes_markdown_markers():
+    text = presentation_text('# Título\n**Texto**\n* Item\n| Coluna A | Coluna B |\n| --- | --- |')
+    assert '#' not in text and '*' not in text and '`' not in text and '|' not in text
+    assert 'Título' in text and '- Item' in text and 'Coluna A • Coluna B' in text
 
 
 def test_docx_dimensions_font_tables_and_pagebreak():

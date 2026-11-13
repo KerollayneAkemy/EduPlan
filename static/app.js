@@ -114,21 +114,27 @@ async function openConversation(id){
   throw error;
  }finally{setConversationLoading(false);}
 }
+function appendInline(target,text){
+ const parts=String(text??'').split(/(\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`)/g);
+ parts.forEach(part=>{if(!part)return;const emphasis=part.match(/^(?:\*\*([^*\n]+)\*\*|__([^_\n]+__?)|`([^`\n]+)`)$/.exec(part));if(emphasis){const strong=document.createElement('strong');strong.textContent=emphasis[1]||emphasis[2]||emphasis[3];target.append(strong);}else target.append(document.createTextNode(part));});
+}
+function displayText(text){return String(text??'').replace(/^\s*#{1,6}\s*/gm,'').replace(/\*\*([^*\n]+)\*\*/g,'$1').replace(/__([^_\n]+)__/g,'$1').replace(/`([^`\n]+)`/g,'$1').replace(/^\s*\*\s+/gm,'• ');}
 function formatMessage(text){
  const content=document.createElement('div');content.className='message-content';let paragraph=[],list=null,listType='';
- const flushParagraph=()=>{if(!paragraph.length)return;const p=document.createElement('p');p.textContent=paragraph.join(' ');content.append(p);paragraph=[];};
+ const flushParagraph=()=>{if(!paragraph.length)return;const p=document.createElement('p');appendInline(p,paragraph.join(' '));content.append(p);paragraph=[];};
  const flushList=()=>{list=null;listType='';};
  String(text??'').replace(/\r/g,'').split('\n').forEach(raw=>{
-  const line=raw.trim();const heading=line.match(/^(#{1,3})\s+(.+)/);const bullet=line.match(/^[-*•]\s+(.+)/);const numbered=line.match(/^\d+[.)]\s+(.+)/);
+  const line=raw.trim();const heading=line.match(/^(#{1,3})\s+(.+)/);const plainTitle=!heading&&line.match(/^(.{2,80}):$/);const bullet=line.match(/^[-*•]\s+(.+)/);const numbered=line.match(/^\d+[.)]\s+(.+)/);const table=line.match(/^\|(.+)\|$/);
   if(!line){flushParagraph();flushList();return;}
-  if(heading){flushParagraph();flushList();const h=document.createElement('h3');h.textContent=heading[2];content.append(h);return;}
-  if(bullet||numbered){flushParagraph();const type=numbered?'ol':'ul';if(!list||listType!==type){list=document.createElement(type);listType=type;content.append(list);}const item=document.createElement('li');item.textContent=(bullet||numbered)[1];list.append(item);return;}
-  flushList();paragraph.push(line);
+  if(table){if(!/^[|\s:-]+$/.test(line))paragraph.push(table[1].split('|').map(cell=>displayText(cell.trim())).filter(Boolean).join(' · '));return;}
+  if(heading||plainTitle){flushParagraph();flushList();const h=document.createElement('h3');appendInline(h,displayText((heading||plainTitle)[2]||plainTitle[1]));content.append(h);return;}
+  if(bullet||numbered){flushParagraph();const type=numbered?'ol':'ul';if(!list||listType!==type){list=document.createElement(type);listType=type;content.append(list);}const item=document.createElement('li');appendInline(item,displayText((bullet||numbered)[1]));list.append(item);return;}
+  flushList();paragraph.push(displayText(line));
  });
  flushParagraph();return content;
 }
 async function copyMessage(text, control){
- try{if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(text);else{const field=document.createElement('textarea');field.value=text;field.style.position='fixed';field.style.opacity='0';document.body.append(field);field.select();document.execCommand('copy');field.remove();}const label=control.textContent;control.textContent='Copiado';notice('Resposta copiada.');setTimeout(()=>{if(control.isConnected)control.textContent=label;},1600);}catch{throw new Error('Não foi possível copiar agora. Selecione o texto e tente novamente.');}
+ try{const plain=displayText(text);if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(plain);else{const field=document.createElement('textarea');field.value=plain;field.style.position='fixed';field.style.opacity='0';document.body.append(field);field.select();document.execCommand('copy');field.remove();}const label=control.textContent;control.textContent='Copiado';notice('Resposta copiada.');setTimeout(()=>{if(control.isConnected)control.textContent=label;},1600);}catch{throw new Error('Não foi possível copiar agora. Selecione o texto e tente novamente.');}
 }
 function editAndResend(text){prefillMessage(text);notice('Edite sua pergunta e envie novamente. A pergunta original continua salva no histórico.');}
 function renderChat(){

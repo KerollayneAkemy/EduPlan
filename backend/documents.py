@@ -53,14 +53,18 @@ def extract(name, data):
 def clean(text):
     # Remove emphasis delimiters, preserving blank answer lines such as ______.
     text = re.sub(r"(?<!_)__([^_\n]+)__(?!_)", r"\1", text)
-    return text.replace("**", "").replace("`", "")
+    text = text.replace("**", "").replace("`", "")
+    text = re.sub(r"^\s*#{1,6}\s*", "", text)
+    return re.sub(r"^\s*\*\s+", "• ", text)
 
 
 def blocks(text):
     lines = text.splitlines()
     i = 0
     while i < len(lines):
-        line = clean(lines[i].strip())
+        raw_line = lines[i].strip()
+        is_heading = raw_line.startswith("#")
+        line = clean(raw_line)
         if "|" in line and i+1 < len(lines) and re.match(r"^\s*\|?\s*:?-{3,}", lines[i+1]):
             rows = [[c.strip() for c in line.strip("|").split("|")]]
             i += 2
@@ -71,7 +75,7 @@ def blocks(text):
             yield "table", [r + [""] * (width-len(r)) for r in rows]
             continue
         if line:
-            yield ("heading" if line.startswith("#") else "text"), line.lstrip("# ") if line.startswith("#") else line
+            yield ("heading" if is_heading else "text"), line
         i += 1
 
 
