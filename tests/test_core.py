@@ -31,10 +31,23 @@ def test_blank_answer_lines_are_preserved():
     assert clean('__Título__ e **ênfase**') == 'Título e ênfase'
 
 
+def test_legacy_material_markdown_is_cleaned_for_exports():
+    legacy = "### Título\n*texto em itálico*\n---\n```\n[Material](https://exemplo.test)\n```"
+    result = clean(legacy)
+    assert '#' not in result and '*' not in result and '`' not in result
+    assert '---' not in result and 'Título' in result and 'texto em itálico' in result
+    data, _ = export({"title": "Teste", "student": legacy, "teacher": ""}, "txt")
+    exported = data.decode("utf-8")
+    assert '#' not in exported and '*' not in exported and '`' not in exported
+    docx, _ = export({"title": "Teste", "student": legacy, "teacher": ""}, "docx")
+    exported_docx = "\n".join(p.text for p in Document(io.BytesIO(docx)).paragraphs)
+    assert '#' not in exported_docx and '*' not in exported_docx and '`' not in exported_docx
+
+
 def test_model_presentation_removes_markdown_markers():
-    text = presentation_text('# Título\n**Texto**\n* Item\n| Coluna A | Coluna B |\n| --- | --- |')
+    text = presentation_text('# Título\n**Texto**\n* Item\n| Coluna A | Coluna B |\n| --- | --- |\n---\n```\n[Guia](https://exemplo.test)\n```')
     assert '#' not in text and '*' not in text and '`' not in text and '|' not in text
-    assert 'Título' in text and '- Item' in text and 'Coluna A • Coluna B' in text
+    assert 'Título' in text and '- Item' in text and 'Coluna A • Coluna B' in text and 'Guia' in text
 
 
 def test_docx_dimensions_font_tables_and_pagebreak():

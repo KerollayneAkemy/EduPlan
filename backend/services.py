@@ -125,8 +125,14 @@ class Answer(BaseModel):
 
 def presentation_text(value: str) -> str:
     """Remove Markdown markers from model output while retaining readable structure."""
+    value = str(value).replace("\r", "")
+    value = re.sub(r"^\s*```[^\n]*$", "", value, flags=re.MULTILINE)
+    value = re.sub(r"^\s*-{3,}\s*$", "", value, flags=re.MULTILINE)
+    value = re.sub(r"\[([^\]\n]+)\]\([^\)\n]+\)", r"\1", value)
     value = re.sub(r"^\s*#{1,6}\s*", "", value, flags=re.MULTILINE)
-    value = value.replace("**", "").replace("`", "")
+    value = re.sub(r"\*\*([^*\n]+)\*\*", r"\1", value)
+    value = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"\1", value)
+    value = value.replace("`", "")
     value = re.sub(r"^\s*\*\s+", "- ", value, flags=re.MULTILINE).replace("*", "×")
     lines = []
     for line in value.splitlines():

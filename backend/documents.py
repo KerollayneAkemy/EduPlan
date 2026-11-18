@@ -51,11 +51,17 @@ def extract(name, data):
 
 
 def clean(text):
-    # Remove emphasis delimiters, preserving blank answer lines such as ______.
+    """Remove Markdown from legacy content without changing answer blanks or diagrams."""
+    text = str(text).replace("\r", "")
+    text = re.sub(r"^\s*```[^\n]*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*-{3,}\s*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\[([^\]\n]+)\]\([^\)\n]+\)", r"\1", text)
     text = re.sub(r"(?<!_)__([^_\n]+)__(?!_)", r"\1", text)
-    text = text.replace("**", "").replace("`", "")
-    text = re.sub(r"^\s*#{1,6}\s*", "", text)
-    return re.sub(r"^\s*\*\s+", "• ", text)
+    text = re.sub(r"\*\*([^*\n]+)\*\*", r"\1", text)
+    text = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"\1", text)
+    text = text.replace("`", "")
+    text = re.sub(r"^\s*#{1,6}\s*", "", text, flags=re.MULTILINE)
+    return re.sub(r"^\s*\*\s+", "• ", text, flags=re.MULTILINE)
 
 
 def blocks(text):
@@ -96,7 +102,9 @@ def export(material, fmt, audience="all", layout=None):
     spacing = layout.get("spacing", 1.5)
     parts = sections(material, audience)
     if fmt == "txt":
-        return ("\n\n" + "="*45 + "\n\n").join(title + "\n\n" + text for title, text in parts).encode("utf-8"), "text/plain; charset=utf-8"
+        # Legacy materials may contain Markdown even though new generations are normalized.
+        content = ("\n\n" + "="*45 + "\n\n").join(clean(title) + "\n\n" + clean(text) for title, text in parts)
+        return content.encode("utf-8"), "text/plain; charset=utf-8"
     out = io.BytesIO()
     if fmt == "docx":
         doc = Document()

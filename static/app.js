@@ -118,7 +118,19 @@ function appendInline(target,text){
  const parts=String(text??'').split(/(\*\*[^*\n]+\*\*|__[^_\n]+__|`[^`\n]+`)/g);
  parts.forEach(part=>{if(!part)return;const emphasis=part.match(/^(?:\*\*([^*\n]+)\*\*|__([^_\n]+__?)|`([^`\n]+)`)$/.exec(part));if(emphasis){const strong=document.createElement('strong');strong.textContent=emphasis[1]||emphasis[2]||emphasis[3];target.append(strong);}else target.append(document.createTextNode(part));});
 }
-function displayText(text){return String(text??'').replace(/^\s*#{1,6}\s*/gm,'').replace(/\*\*([^*\n]+)\*\*/g,'$1').replace(/__([^_\n]+)__/g,'$1').replace(/`([^`\n]+)`/g,'$1').replace(/^\s*\*\s+/gm,'• ');}
+function displayText(text){
+ return String(text??'')
+  .replace(/\r/g,'')
+  .replace(/^\s*```[^\n]*$/gm,'')
+  .replace(/^\s*-{3,}\s*$/gm,'')
+  .replace(/\[([^\]\n]+)\]\([^\)\n]+\)/g,'$1')
+  .replace(/^\s*#{1,6}\s*/gm,'')
+  .replace(/\*\*([^*\n]+)\*\*/g,'$1')
+  .replace(/__([^_\n]+)__/g,'$1')
+  .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g,'$1')
+  .replace(/`/g,'')
+  .replace(/^\s*\*\s+/gm,'• ');
+}
 function formatMessage(text){
  const content=document.createElement('div');content.className='message-content';let paragraph=[],list=null,listType='';
  const flushParagraph=()=>{if(!paragraph.length)return;const p=document.createElement('p');appendInline(p,paragraph.join(' '));content.append(p);paragraph=[];};
@@ -126,6 +138,7 @@ function formatMessage(text){
  String(text??'').replace(/\r/g,'').split('\n').forEach(raw=>{
   const line=raw.trim();const heading=line.match(/^(#{1,3})\s+(.+)/);const plainTitle=!heading&&line.match(/^(.{2,80}):$/);const bullet=line.match(/^[-*•]\s+(.+)/);const numbered=line.match(/^\d+[.)]\s+(.+)/);const table=line.match(/^\|(.+)\|$/);
   if(!line){flushParagraph();flushList();return;}
+  if(/^```/.test(line)||/^-{3,}$/.test(line)){flushParagraph();flushList();return;}
   if(table){if(!/^[|\s:-]+$/.test(line))paragraph.push(table[1].split('|').map(cell=>displayText(cell.trim())).filter(Boolean).join(' · '));return;}
   if(heading||plainTitle){flushParagraph();flushList();const h=document.createElement('h3');appendInline(h,displayText((heading||plainTitle)[2]||plainTitle[1]));content.append(h);return;}
   if(bullet||numbered){flushParagraph();const type=numbered?'ol':'ul';if(!list||listType!==type){list=document.createElement(type);listType=type;content.append(list);}const item=document.createElement('li');appendInline(item,displayText((bullet||numbered)[1]));list.append(item);return;}
@@ -202,8 +215,9 @@ function renderMaterials(){
 }
 function download(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
 function exportDialog(m){
- modal(`<h2>${escapeHTML(m.title)}</h2><p>Revise a proposta antes de usar. As orientações e o gabarito ficam separados do conteúdo principal.</p><div class="document-preview">${escapeHTML(m.student)}${m.teacher?'\n\n──── ORIENTAÇÕES DO PROFESSOR ────\n\n'+escapeHTML(m.teacher):''}</div><label class="field">Conteúdo do download<select id="export-audience"><option value="all">Material completo, com seção separada do professor</option><option value="student">Somente atividade / conteúdo principal</option><option value="teacher">Somente orientações e gabarito do professor</option></select></label><details><summary>Ajustar modelo acadêmico</summary><p>Arial 12, preto, A4. Modelo ajustável; não declara conformidade integral com ABNT.</p><div class="form-row">${[['top','Superior',3],['left','Esquerda',3],['bottom','Inferior',2],['right','Direita',2]].map(([id,label,value])=>`<label class="field">Margem ${label.toLowerCase()} (cm)<input id="margin-${id}" type="number" min="1" max="4" step="0.1" value="${value}"></label>`).join('')}</div><label class="field">Espaçamento<select id="export-spacing"><option value="1.5">1,5</option><option value="1">1,0</option><option value="2">2,0</option></select></label></details><div class="dialog-actions" id="export-buttons"></div><p class="form-help">TXT mantém títulos e separações, mas não suporta fonte, cor ou diagramação. ${config.pdf_ready?'':'PDF depende de Arial licenciada no servidor; não será usada uma fonte substituta.'}</p>`);
- ['docx','pdf','txt'].forEach(format=>$('export-buttons').append(button('↓ '+({docx:'Word',pdf:'PDF',txt:'TXT'})[format],async()=>{const layout={spacing:Number($('export-spacing').value)};['top','left','bottom','right'].forEach(k=>layout[k]=Number($('margin-'+k).value));const blob=await api('/materials/'+m.id+'/export',{method:'POST',blob:true,body:{format,audience:$('export-audience').value,layout}});download(blob,'eduplan-'+m.id+'.'+format);notice('Arquivo gerado e salvo no seu armazenamento privado.');},'secondary')));
+ modal(`<h2>${escapeHTML(m.title)}</h2><p>Revise a proposta antes de usar. As orientações e o gabarito ficam separados do conteúdo principal.</p><div class="document-preview" id="material-preview"></div><label class="field">Conteúdo do download<select id="export-audience"><option value="all">Material completo, com seção separada do professor</option><option value="student">Somente atividade / conteúdo principal</option><option value="teacher">Somente orientações e gabarito do professor</option></select></label><details><summary>Ajustar modelo acadêmico</summary><p>Arial 12, preto, A4. Modelo ajustável; não declara conformidade integral com ABNT.</p><div class="form-row">${[['top','Superior',3],['left','Esquerda',3],['bottom','Inferior',2],['right','Direita',2]].map(([id,label,value])=>`<label class="field">Margem ${label.toLowerCase()} (cm)<input id="margin-${id}" type="number" min="1" max="4" step="0.1" value="${value}"></label>`).join('')}</div><label class="field">Espaçamento<select id="export-spacing"><option value="1.5">1,5</option><option value="1">1,0</option><option value="2">2,0</option></select></label></details><div class="dialog-actions" id="export-buttons"></div><p class="form-help">TXT mantém títulos e separações, mas não suporta fonte, cor ou diagramação. ${config.pdf_ready?'':'PDF depende de Arial licenciada no servidor; não será usada uma fonte substituta.'}</p>`);
+ const preview=$('material-preview');preview.append(formatMessage(m.student));if(m.teacher){const separator=document.createElement('h3');separator.textContent='Orientações do professor';preview.append(separator,formatMessage(m.teacher));}
+ ['docx','pdf','txt'].forEach(format=>{const action=button('↓ '+({docx:'Word',pdf:'PDF',txt:'TXT'})[format],async()=>{const layout={spacing:Number($('export-spacing').value)};['top','left','bottom','right'].forEach(k=>layout[k]=Number($('margin-'+k).value));const blob=await api('/materials/'+m.id+'/export',{method:'POST',blob:true,body:{format,audience:$('export-audience').value,layout}});download(blob,'eduplan-'+m.id+'.'+format);notice('Arquivo gerado e salvo no seu armazenamento privado.');},'secondary');if(format==='pdf'&&!config.pdf_ready){action.disabled=true;action.title='PDF indisponível: instale uma fonte Arial licenciada no servidor.';action.textContent='PDF indisponível';}$('export-buttons').append(action);});
 }
 function settings(){
  if(needLogin()||!stateReady())return;view('settings');libraryHeader('Configurações','Seu perfil e suas preferências, em um só lugar.');
