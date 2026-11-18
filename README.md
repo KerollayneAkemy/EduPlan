@@ -66,7 +66,7 @@ O microfone usa reconhecimento do navegador e mantém a transcrição editável 
 
 ## Exportação e Arial
 
-DOCX e PDF são gerados no backend, em memória: A4, Arial 12, preto, margens superior/esquerda 3 cm, inferior/direita 2 cm e espaçamento 1,5. O diálogo permite ajustar margens e espaçamento. Tabelas Markdown viram tabelas reais. Orientações do professor começam em nova página. TXT é UTF-8 e preserva texto e separações, sem diagramação.
+DOCX e PDF são gerados no backend, em memória: A4, preto, margens superior/esquerda 3 cm, inferior/direita 2 cm e espaçamento 1,5. O diálogo permite ajustar margens e espaçamento. Tabelas Markdown viram tabelas reais. Orientações do professor começam em nova página. TXT é UTF-8 e preserva texto e separações, sem diagramação.
 
 **A fonte Arial não é distribuída neste repositório.** O DOCX declara Arial e requer que o leitor a tenha instalada. Para PDF:
 
@@ -75,7 +75,7 @@ DOCX e PDF são gerados no backend, em memória: A4, Arial 12, preto, margens su
 3. No Windows local, a Arial instalada pode ser utilizada para produção de documentos conforme sua licença e permissões de incorporação; o caminho usual é `C:/Windows/Fonts/arial.ttf`.
 4. Não copie a fonte do Windows para a Vercel supondo que a licença do desktop autoriza redistribuição ou uso em servidor. Na Vercel, forneça um arquivo legitimamente licenciado no pacote privado de implantação ou outro mecanismo seguro de provisionamento. `fonts/*.ttf` está ignorado pelo Git.
 
-Sem Arial configurada, PDF retorna uma mensagem explicativa; não há substituição silenciosa. Word e TXT seguem disponíveis. Trata-se de **modelo acadêmico ajustável**, não de certificação de conformidade integral com ABNT. Exigências institucionais e norma pertinente precisam de conferência humana.
+Sem Arial configurada, o EduPlan gera PDF em Helvetica, uma fonte padrão do PDF que funciona na Vercel sem depender do disco local. A interface informa essa escolha antes do download; portanto, não há substituição silenciosa. Quando a instituição exigir Arial, configure a fonte licenciada conforme os passos acima. Trata-se de **modelo acadêmico ajustável**, não de certificação de conformidade integral com ABNT. Exigências institucionais e norma pertinente precisam de conferência humana.
 
 Os materiais estruturados permanecem no PostgreSQL. Cada exportação também é salva no Storage privado; downloads passam pela autenticação. Não há URLs públicas permanentes. O aplicativo não grava dados de produção no disco da Vercel.
 

@@ -49,7 +49,10 @@ async def account(authorization: str | None = Header(default=None)):
 @app.get("/api/config")
 def config():
     url, key = os.getenv("SUPABASE_URL", ""), os.getenv("SUPABASE_ANON_KEY", "")
-    return {"supabase_url": url, "supabase_key": key, "configured": bool(url and key), "pdf_ready": pdf_ready(),
+    arial = pdf_ready()
+    return {"supabase_url": url, "supabase_key": key, "configured": bool(url and key), "pdf_ready": arial,
+            "pdf_available": True, "pdf_font": "Arial" if arial else "Helvetica",
+            "pdf_notice": "PDF gerado em Arial." if arial else "PDF gerado em Helvetica. Configure uma Arial licenciada no servidor se sua instituição exigir essa fonte.",
             "tasks": {k: v[0] for k, v in TASKS.items()}}
 
 

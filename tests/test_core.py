@@ -65,12 +65,14 @@ def test_docx_dimensions_font_tables_and_pagebreak():
     assert "Frações" in extract("a.docx", data)
 
 
-def test_pdf_requires_explicit_arial(monkeypatch):
+def test_pdf_uses_helvetica_when_arial_is_not_configured(monkeypatch):
     monkeypatch.delenv("ARIAL_FONT_PATH", raising=False)
-    with pytest.raises(HTTPException) as e:
-        export(MATERIAL, "pdf")
-    assert e.value.status_code == 503
-    assert "Arial" in e.value.detail
+    monkeypatch.delenv("ARIAL_LICENSE_CONFIRMED", raising=False)
+    data, mime = export(MATERIAL, "pdf")
+    reader = PdfReader(io.BytesIO(data))
+    assert len(reader.pages) == 2
+    assert "Frações" in reader.pages[0].extract_text()
+    assert mime == "application/pdf"
 
 
 @pytest.mark.skipif(not os.getenv("TEST_ARIAL_PATH"), reason="Arial local não informada")
@@ -149,7 +151,10 @@ def test_public_shell_private_routes_and_no_secrets(monkeypatch):
     with TestClient(web.app) as client:
         assert client.get('/').status_code==200
         assert client.get('/api/state').status_code==401
-        assert 'never-public-secret' not in client.get('/api/config').text
+        config = client.get('/api/config')
+        assert 'never-public-secret' not in config.text
+        assert config.json()['pdf_available'] is True
+        assert config.json()['pdf_font'] in {'Arial', 'Helvetica'}
         assert "frame-ancestors 'none'" in client.get('/').headers['content-security-policy']
 
 

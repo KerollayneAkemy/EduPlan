@@ -96,6 +96,15 @@ def pdf_ready():
     return os.getenv("ARIAL_LICENSE_CONFIRMED") == "true" and Path(os.getenv("ARIAL_FONT_PATH", "__missing__")).is_file()
 
 
+def pdf_font():
+    """Prefer licensed Arial, with an explicit standards-safe server fallback."""
+    if pdf_ready():
+        pdfmetrics.registerFont(TTFont("EduArial", os.environ["ARIAL_FONT_PATH"]))
+        return "EduArial"
+    # Helvetica is built into ReportLab/PDF readers, so it works on Vercel without disk storage.
+    return "Helvetica"
+
+
 def export(material, fmt, audience="all", layout=None):
     layout = layout or {}
     margins = [layout.get(k, default) for k, default in [("top", 3), ("left", 3), ("bottom", 2), ("right", 2)]]
@@ -135,10 +144,7 @@ def export(material, fmt, audience="all", layout=None):
         return out.getvalue(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     if fmt != "pdf":
         raise HTTPException(422, "Formato não suportado.")
-    if not pdf_ready():
-        raise HTTPException(503, "PDF indisponível: configure uma fonte Arial licenciada no servidor. Word e TXT continuam disponíveis; nenhuma fonte foi substituída.")
-    pdfmetrics.registerFont(TTFont("EduArial", os.environ["ARIAL_FONT_PATH"]))
-    normal = ParagraphStyle("body", fontName="EduArial", fontSize=12, leading=12*spacing, spaceAfter=6, textColor=colors.black, splitLongWords=True)
+    normal = ParagraphStyle("body", fontName=pdf_font(), fontSize=12, leading=12*spacing, spaceAfter=6, textColor=colors.black, splitLongWords=True)
     heading = ParagraphStyle("heading", parent=normal, spaceBefore=12, spaceAfter=10, keepWithNext=True)
     cm = 72/2.54
     document = SimpleDocTemplate(out, pagesize=A4, topMargin=margins[0]*cm, leftMargin=margins[1]*cm, bottomMargin=margins[2]*cm, rightMargin=margins[3]*cm)
