@@ -217,10 +217,10 @@ async def message(id: UUID, body: Message, a: Account = Depends(account)):
         context = {"perfil": profile_rows[0] if profile_rows else {}, "conversa": convo}
         if convo["version_id"]:
             ref = await db.one("syllabus_versions", convo["version_id"])
-            context["ementa"] = {"nome": ref["name"], "versao": ref["version"], "disciplina": ref["subject"], "etapa": ref["stage"], "turma": ref["classroom"],
+            context["plano_anual"] = {"nome": ref["name"], "versao": ref["version"], "disciplina": ref["subject"], "etapa": ref["stage"], "turma": ref["classroom"],
                 "texto": relevant(ref["text"], body.text + " " + " ".join(m["content"][:500] for m in prior[-6:]))}
         else:
-            context["ementa"] = "Nenhuma ementa selecionada. Não alegue alinhamento curricular."
+            context["plano_anual"] = "Nenhum plano anual selecionado. Não alegue alinhamento curricular."
         # Earlier attachments remain available, with bounded excerpt selection.
         old_ids = list(dict.fromkeys(f for m in prior for f in m.get("file_ids", [])))
         for f in old_ids[-3:]:
