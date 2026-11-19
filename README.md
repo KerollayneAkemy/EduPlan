@@ -4,7 +4,7 @@
 
 **Projeto acadêmico · Apresentação em 6 de novembro de 2026**
 
-Colaboração: [@Emily2311](https://github.com/Emily2311) e [@AnaLuiza2431](https://github.com/AnaLuiza2431).
+Equipe: [@KerollayneAkemy](https://github.com/KerollayneAkemy), [@Emily2311](https://github.com/Emily2311) e [@AnaLuiza2431](https://github.com/AnaLuiza2431).
 
 [Acessar o EduPlan publicado](https://eduplan-kerollayneakemys-projects.vercel.app/) · [Roteiro de apresentação](docs/APRESENTACAO.md) · [Como finalizar a configuração](docs/FINALIZAR.md)
 
